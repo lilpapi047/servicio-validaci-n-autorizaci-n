@@ -1,0 +1,202 @@
+-- ==== CORE USERS ====
+CREATE TABLE "user" (
+  id           BIGSERIAL PRIMARY KEY,
+  email        TEXT NOT NULL UNIQUE,
+  hash_pwd     TEXT NOT NULL,
+  is_verified  BOOLEAN NOT NULL DEFAULT FALSE,
+  twofa_secret TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Opcional Sesiones & Configuraciones (revision)
+CREATE TABLE user_session (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES "user"(id),
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  device_fingerprint TEXT
+);
+
+CREATE TABLE user_settings (
+  user_id BIGINT PRIMARY KEY REFERENCES "user"(id),
+  notif_match BOOLEAN DEFAULT TRUE,
+  notif_team  BOOLEAN DEFAULT TRUE,
+  notif_phase BOOLEAN DEFAULT TRUE
+);
+
+-- ==== ADMIN: ELIGIBILITY RULES (HU 1.7) ====
+CREATE TABLE eligibility_rule (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ==== STADIUM / MATCH CATALOGS ====
+CREATE TABLE stadium (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  address TEXT,
+  capacity INT,
+  tz TEXT NOT NULL DEFAULT 'UTC'
+);
+
+-- ==== Cambie Section por area ya que parece reservada ====
+CREATE TABLE area (
+  id BIGSERIAL PRIMARY KEY,
+  stadium_id BIGINT NOT NULL REFERENCES stadium(id),
+  label TEXT NOT NULL,
+  shade TEXT NOT NULL,
+  CONSTRAINT uq_area UNIQUE (stadium_id, label),
+  CONSTRAINT ck_area_shade CHECK (shade IN ('shade','sun','mixed'))
+);
+
+CREATE TABLE seat (
+  id BIGSERIAL PRIMARY KEY,
+  stadium_id  BIGINT NOT NULL REFERENCES stadium(id),
+  area_id BIGINT NOT NULL REFERENCES area(id),
+  row TEXT,
+  seat_number TEXT,
+  CONSTRAINT uq_seat_in_area UNIQUE (area_id, row, seat_number)
+);
+
+CREATE TABLE team (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE phase (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  ordr INT NOT NULL
+);
+
+CREATE TABLE "match" (
+  id BIGSERIAL PRIMARY KEY,
+  stadium_id BIGINT NOT NULL REFERENCES stadium(id),
+  home_team_id BIGINT NOT NULL REFERENCES team(id),
+  away_team_id BIGINT NOT NULL REFERENCES team(id),
+  phase_id BIGINT NOT NULL REFERENCES phase(id),
+  kickoff_at TIMESTAMPTZ NOT NULL
+);
+
+-- ==== PRICING ====
+CREATE TABLE price_tier (
+  id BIGSERIAL PRIMARY KEY,
+  match_id BIGINT NOT NULL REFERENCES "match"(id),
+  area_id BIGINT NOT NULL REFERENCES area(id),
+  currency TEXT NOT NULL,
+  base_price NUMERIC(12,2) NOT NULL,
+  CONSTRAINT uq_price_tier UNIQUE (match_id, area_id),
+  CONSTRAINT ck_price_tier CHECK (base_price >= 0)
+);
+
+-- ==== INVENTORY & HOLDS ====
+CREATE TABLE inventory (
+  id BIGSERIAL PRIMARY KEY,
+  seat_id BIGINT NOT NULL REFERENCES seat(id),
+  match_id BIGINT NOT NULL REFERENCES "match"(id),
+  status TEXT NOT NULL,
+  version INT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_inventory UNIQUE (seat_id, match_id),
+  CONSTRAINT ck_inventory_status CHECK (status IN ('available','held','sold','blocked'))
+);
+
+CREATE TABLE reservation_hold (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES "user"(id),
+  match_id BIGINT NOT NULL REFERENCES "match"(id),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE hold_item (
+  reservation_hold_id BIGINT NOT NULL REFERENCES reservation_hold(id) ON DELETE CASCADE,
+  seat_id BIGINT NOT NULL REFERENCES seat(id),
+  PRIMARY KEY (reservation_hold_id, seat_id)
+);
+
+-- ==== ORDERS ====
+CREATE TABLE "order" (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES "user"(id),
+  match_id BIGINT NOT NULL REFERENCES "match"(id),
+  total NUMERIC(12,2) NOT NULL,
+  currency TEXT NOT NULL,
+  state TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_order_state CHECK (state IN ('pending','paid','cancelled'))
+);
+
+CREATE TABLE order_item (
+  order_id BIGINT NOT NULL REFERENCES "order"(id) ON DELETE CASCADE,
+  seat_id  BIGINT NOT NULL REFERENCES seat(id),
+  price    NUMERIC(12,2) NOT NULL,
+  PRIMARY KEY (order_id, seat_id),
+  CONSTRAINT ck_order_item_price CHECK (price >= 0)
+);
+
+-- ==== PAYMENTS ====
+CREATE TABLE payment (
+  id BIGSERIAL PRIMARY KEY,
+  order_id BIGINT NOT NULL REFERENCES "order"(id),
+  provider TEXT NOT NULL,
+  intent_id TEXT,
+  status TEXT NOT NULL,
+  amount NUMERIC(12,2) NOT NULL,
+  currency TEXT NOT NULL,
+  raw JSONB,
+  CONSTRAINT uq_payment_intent UNIQUE (intent_id),
+  CONSTRAINT ck_payment_amount CHECK (amount >= 0)
+);
+
+-- ==== TICKETS & REVOCATIONS ====
+CREATE TABLE ticket (
+  id BIGSERIAL PRIMARY KEY,
+  order_id BIGINT NOT NULL REFERENCES "order"(id),
+  seat_id BIGINT NOT NULL REFERENCES seat(id),
+  owner_user_id BIGINT NOT NULL REFERENCES "user"(id),
+  qr_payload TEXT NOT NULL,
+  signature TEXT,
+  status TEXT NOT NULL,
+  CONSTRAINT ck_ticket_status CHECK (status IN ('issued','validated','revoked','void')),
+  CONSTRAINT uq_ticket_order_seat UNIQUE (order_id, seat_id)
+);
+
+CREATE TABLE revocation (
+  id BIGSERIAL PRIMARY KEY,
+  ticket_id BIGINT NOT NULL REFERENCES ticket(id),
+  reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_revocation_ticket UNIQUE (ticket_id) -- 0..1 per ticket
+);
+
+-- ==== RAFFLE (HU 1.3 assignments) ====
+CREATE TABLE raffle_assignment (
+  id BIGSERIAL PRIMARY KEY,
+  user_id  BIGINT NOT NULL REFERENCES "user"(id),
+  match_id BIGINT NOT NULL REFERENCES "match"(id),
+  token TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  CONSTRAINT ck_raffle_status CHECK (status IN ('pending','expired','claimed'))
+);
+
+-- ==== AUDIT (optional but useful) ====
+CREATE TABLE audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  actor TEXT NOT NULL,      -- 'system' or user/admin identifier
+  action TEXT NOT NULL,     -- e.g., 'raffle.assign', 'payment.captured'
+  entity TEXT NOT NULL,     -- table name
+  entity_id TEXT NOT NULL,  -- id text
+  at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Helpful indexes
+CREATE INDEX idx_inventory_match_status ON inventory(match_id, status);
+CREATE INDEX idx_reservation_hold_expires ON reservation_hold(expires_at);
+CREATE INDEX idx_payment_order ON payment(order_id);
+CREATE INDEX idx_ticket_owner ON ticket(owner_user_id);
