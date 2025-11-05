@@ -1,5 +1,60 @@
-# Entorno virtual
+# --- Entornos virtuales ---
 venv/
 venvv/
+.env
+.env.*
+
+# --- Archivos de Python ---
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.pdb
+*.log
+
+# --- Archivos temporales de pruebas ---
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.cache/
+.tox/
+nosetests.xml
+coverage.xml
+
+# --- Archivos de configuración local ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- Archivos del sistema ---
+.DS_Store
+Thumbs.db
+
+# --- Archivos de build y distribución ---
+build/
+dist/
+*.egg-info/
+*.egg
+
+# --- SQLite u otras bases de datos locales ---
+*.sqlite3
+*.db
+
+# --- Docker ---
+# Ignorar archivos generados por contenedores locales
+*.pid
+*.sock
+docker-compose.override.yml
+.dockerignore
+
+# --- FastAPI/Starlette ---
+# Si usas staticfiles o templates generados dinámicamente
+/static/
+*.log
+
+# --- Archivos de CI/CD locales ---
+*.swp
+*.tmp
+*.bak
