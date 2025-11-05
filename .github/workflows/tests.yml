@@ -1,10 +1,9 @@
-name: Tests y Validación
+name: Tests y Auto Pull Request
 
 on:
   push:
-    branches: [ main, develop, feature/** ]
-  pull_request:
-    branches: [ main, develop ]
+    branches-ignore:
+      - 'main'
 
 jobs:
   test:
@@ -43,9 +42,7 @@ jobs:
     - name: Lint con flake8
       run: |
         pip install flake8
-        # Detener el build si hay errores de sintaxis o nombres no definidos
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Advertencias (no detienen el build)
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       continue-on-error: false
 
@@ -76,14 +73,32 @@ jobs:
         pip install coverage
         coverage report --fail-under=70
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        fail_ci_if_error: false
+  create-pr:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
 
-    - name: Comentar resultados en PR
-      if: github.event_name == 'pull_request'
-      uses: py-cov-action/python-coverage-comment-action@v3
+    - name: Crear Pull Request
+      uses: repo-sync/pull-request@v2
       with:
-        GITHUB_TOKEN: ${{ github.token }}
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        source_branch: ${{ github.ref_name }}
+        destination_branch: main
+        pr_title: "🤖 Auto PR: ${{ github.ref_name }} (tests ✅)"
+        pr_body: |
+          ## Pull Request Automático
+          
+          ✅ Todos los tests pasaron exitosamente en `${{ github.ref_name }}`
+          
+          ### Checks completados:
+          - ✅ Lint (flake8)
+          - ✅ Tests unitarios
+          - ✅ Tests de integración
+          - ✅ Cobertura >= 70%
+          
+          **Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        pr_label: "auto-pr,tests-passed"
