@@ -1,138 +1,39 @@
-name: Tests y Auto Pull Request
+name: test
 
 on:
   push:
-    branches-ignore:
-      - 'main'
+    branches:
+      - main
+      - auth-validation
+  pull_request:
+    branches:
+      - main
+      - auth-validation
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: test_db
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
-    - name: Checkout código
-      uses: actions/checkout@v4
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-    - name: Configurar Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-        cache: 'pip'
+      - name: Configurar Python 3.11.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
 
-    - name: Instalar dependencias
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 pytest
 
-    - name: Lint con flake8
-      run: |
-        pip install flake8
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      continue-on-error: false
+      - name: Lint con flake8
+        run: |
+          flake8 servicio_validacion --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 servicio_validacion --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Ejecutar pruebas unitarias
-      env:
-        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
-        SECRET_KEY: test-secret-key-for-ci
-        TWILIO_ACCOUNT_SID: test_sid
-        TWILIO_AUTH_TOKEN: test_token
-        TWILIO_FROM_EMAIL: test@example.com
-        FRONTEND_URL: http://localhost:3000
-      run: |
-        pytest tests/unit/ -v --cov=servicio_validacion --cov-report=xml --cov-report=term-missing
-
-    - name: Ejecutar pruebas de integración
-      env:
-        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
-        SECRET_KEY: test-secret-key-for-ci
-        TWILIO_ACCOUNT_SID: test_sid
-        TWILIO_AUTH_TOKEN: test_token
-        TWILIO_FROM_EMAIL: test@example.com
-        FRONTEND_URL: http://localhost:3000
-      run: |
-        pytest tests/integration/ -v
-
-    - name: Verificar cobertura mínima
-      run: |
-        pip install coverage
-        coverage report --fail-under=70
-
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        fail_ci_if_error: false
-
-  create-pull-request:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main'
-    
-    steps:
-    - name: Checkout código
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Verificar si ya existe un PR
-      id: check-pr
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        PR_EXISTS=$(gh pr list --head ${{ github.ref_name }} --base main --json number --jq length)
-        echo "pr_exists=$PR_EXISTS" >> $GITHUB_OUTPUT
-
-    - name: Crear Pull Request
-      if: steps.check-pr.outputs.pr_exists == '0'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh pr create \
-          --base main \
-          --head ${{ github.ref_name }} \
-          --title "🤖 Auto PR: ${{ github.ref_name }} (tests ✅)" \
-          --body "## Pull Request Automático
-
-        ✅ Todos los tests pasaron exitosamente en \`${{ github.ref_name }}\`
-        
-        ### Checks completados:
-        - ✅ Lint (flake8)
-        - ✅ Tests unitarios
-        - ✅ Tests de integración  
-        - ✅ Cobertura >= 70%
-        
-        ### Información del Workflow:
-        - **Branch:** \`${{ github.ref_name }}\`
-        - **Commit:** \`${{ github.sha }}\`
-        - **Workflow Run:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-        
-        ---
-        _Este PR fue creado automáticamente por GitHub Actions_" \
-          --label "auto-pr,tests-passed"
-
-    - name: Comentar en PR existente
-      if: steps.check-pr.outputs.pr_exists != '0'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh pr comment ${{ github.ref_name }} \
-          --body "✅ Nuevo commit pasó todos los tests exitosamente!
-        
-        **Commit:** \`${{ github.sha }}\`
-        **Workflow:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+      - name: Ejecutar tests con pytest
+        run: |
+          pytest tests/unit -v

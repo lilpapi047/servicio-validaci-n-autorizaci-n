@@ -2,12 +2,11 @@ import sys
 import os
 from fastapi import FastAPI
 
-# 👇 Permitir que Python encuentre los módulos dentro de esta carpeta
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# ✅ Importación correcta según tu estructura real
-from app.routers import auth  # tu archivo se llama app/routers/auth.py
-from app.database import init_db  # asegúrate de tener esta función en app/database.py
+from app.routers import auth  
+from app.database import init_db  
 
 # Crear la aplicación FastAPI
 app = FastAPI(title="Servicio de Validación y Autenticación")
