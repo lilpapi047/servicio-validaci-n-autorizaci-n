@@ -1,0 +1,89 @@
+name: Tests y Validación
+
+on:
+  push:
+    branches: [ main, develop, feature/** ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+
+    - name: Configurar Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Lint con flake8
+      run: |
+        pip install flake8
+        # Detener el build si hay errores de sintaxis o nombres no definidos
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Advertencias (no detienen el build)
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      continue-on-error: false
+
+    - name: Ejecutar pruebas unitarias
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        SECRET_KEY: test-secret-key-for-ci
+        TWILIO_ACCOUNT_SID: test_sid
+        TWILIO_AUTH_TOKEN: test_token
+        TWILIO_FROM_EMAIL: test@example.com
+        FRONTEND_URL: http://localhost:3000
+      run: |
+        pytest tests/unit/ -v --cov=servicio_validacion --cov-report=xml --cov-report=term-missing
+
+    - name: Ejecutar pruebas de integración
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        SECRET_KEY: test-secret-key-for-ci
+        TWILIO_ACCOUNT_SID: test_sid
+        TWILIO_AUTH_TOKEN: test_token
+        TWILIO_FROM_EMAIL: test@example.com
+        FRONTEND_URL: http://localhost:3000
+      run: |
+        pytest tests/integration/ -v
+
+    - name: Verificar cobertura mínima
+      run: |
+        pip install coverage
+        coverage report --fail-under=70
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+    - name: Comentar resultados en PR
+      if: github.event_name == 'pull_request'
+      uses: py-cov-action/python-coverage-comment-action@v3
+      with:
+        GITHUB_TOKEN: ${{ github.token }}
