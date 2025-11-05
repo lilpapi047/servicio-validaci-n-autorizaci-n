@@ -73,7 +73,13 @@ jobs:
         pip install coverage
         coverage report --fail-under=70
 
-  create-pr:
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  create-pull-request:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref != 'refs/heads/main'
@@ -81,24 +87,52 @@ jobs:
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Verificar si ya existe un PR
+      id: check-pr
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        PR_EXISTS=$(gh pr list --head ${{ github.ref_name }} --base main --json number --jq length)
+        echo "pr_exists=$PR_EXISTS" >> $GITHUB_OUTPUT
 
     - name: Crear Pull Request
-      uses: repo-sync/pull-request@v2
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        source_branch: ${{ github.ref_name }}
-        destination_branch: main
-        pr_title: "🤖 Auto PR: ${{ github.ref_name }} (tests ✅)"
-        pr_body: |
-          ## Pull Request Automático
-          
-          ✅ Todos los tests pasaron exitosamente en `${{ github.ref_name }}`
-          
-          ### Checks completados:
-          - ✅ Lint (flake8)
-          - ✅ Tests unitarios
-          - ✅ Tests de integración
-          - ✅ Cobertura >= 70%
-          
-          **Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        pr_label: "auto-pr,tests-passed"
+      if: steps.check-pr.outputs.pr_exists == '0'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh pr create \
+          --base main \
+          --head ${{ github.ref_name }} \
+          --title "🤖 Auto PR: ${{ github.ref_name }} (tests ✅)" \
+          --body "## Pull Request Automático
+
+        ✅ Todos los tests pasaron exitosamente en \`${{ github.ref_name }}\`
+        
+        ### Checks completados:
+        - ✅ Lint (flake8)
+        - ✅ Tests unitarios
+        - ✅ Tests de integración  
+        - ✅ Cobertura >= 70%
+        
+        ### Información del Workflow:
+        - **Branch:** \`${{ github.ref_name }}\`
+        - **Commit:** \`${{ github.sha }}\`
+        - **Workflow Run:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        
+        ---
+        _Este PR fue creado automáticamente por GitHub Actions_" \
+          --label "auto-pr,tests-passed"
+
+    - name: Comentar en PR existente
+      if: steps.check-pr.outputs.pr_exists != '0'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh pr comment ${{ github.ref_name }} \
+          --body "✅ Nuevo commit pasó todos los tests exitosamente!
+        
+        **Commit:** \`${{ github.sha }}\`
+        **Workflow:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
