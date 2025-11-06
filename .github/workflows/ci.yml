@@ -9,6 +9,7 @@ jobs:
   test:
     name: Test (Python 3.11 + Postgres 16)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     services:
       postgres:
@@ -28,6 +29,7 @@ jobs:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/app_test
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout
@@ -37,14 +39,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          cache: "pip"
 
       - name: Install dependencies
         run: |
@@ -54,18 +49,14 @@ jobs:
 
       - name: Wait for Postgres
         run: |
-          for i in {1..30}; do
+          for i in {1..60}; do
             pg_isready -h localhost -p 5432 -U postgres -d app_test && break
             sleep 2
           done
 
-      # Optional: if you use Alembic migrations
-      # - name: Run migrations
-      #   run: alembic upgrade head
-
       - name: Run tests with coverage
         run: |
-          pytest -q --maxfail=1 --disable-warnings --cov=. --cov-report=xml --junitxml=pytest-junit.xml
+          pytest -v --maxfail=1 --disable-warnings --cov=. --cov-report=xml --junitxml=pytest-junit.xml
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
