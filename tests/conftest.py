@@ -9,7 +9,7 @@ from services.api.database import Base, get_db  # <-- FIXED
 
 TEST_DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg2://postgres:postgres@localhost:5432/app_test",
+    "postgresql+psycopg2://postgres:753951@localhost:5432/app_test",
 )
 
 engine = create_engine(TEST_DATABASE_URL, future=True)
