@@ -53,7 +53,7 @@ def check_eligibility(
 
     reasons: list[str] = []
 
-    # Email verified (toggle off if you don't want this)
+    # Email verified
     if not user.is_verified:
         reasons.append("Email not verified")
 
