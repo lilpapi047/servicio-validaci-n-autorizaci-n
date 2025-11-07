@@ -3,13 +3,13 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 import os
 
-# Load .env if present (local dev)
+# Cargar el .env
 load_dotenv()
 
-# Priority order:
-# 1) DATABASE_URL (CI / local overrides)
-# 2) NEON_DATABASE_URL (prod/staging secret)
-# 3) Hardcoded Neon URL (temporary fallback; remove once envs are set)
+# Prioridades
+# 1) DATABASE_URL (CI /Local)
+# 2) NEON_DATABASE_URL (Produccion)
+# 3) Hardcoded Neon URL (Fallback; Temporal con env)
 DEFAULT_NEON = (
     "postgresql://neondb_owner:npg_1Pit2fkIUyvO@"
     "ep-summer-darkness-ahwe7hy1-pooler.c-3.us-east-1.aws.neon.tech/"

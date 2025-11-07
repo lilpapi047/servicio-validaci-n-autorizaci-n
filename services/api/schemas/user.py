@@ -22,4 +22,4 @@ class UserOut(BaseModel):
     phone: Optional[str] = None
 
     class Config:
-        from_attributes = True  # enables ORM mode in Pydantic v2
+        from_attributes = True  

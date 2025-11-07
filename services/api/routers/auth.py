@@ -11,13 +11,13 @@ pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 @router.post("/signup", response_model=UserOut)
 def signup(payload: UserCreate, db: Session = Depends(get_db)):
-    # duplicate email check
+    # Revisar duplicidad de email.
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
-        # tests accept 400 or 409 for duplicates
+        # El test acepta 400 o 409 para duplicidad
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    # create user
+    # Creacion de Usuario
     user = models.User(
         email=payload.email,
         hash_pwd=pwd.hash(payload.password),
