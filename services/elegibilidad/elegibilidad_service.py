@@ -1,4 +1,3 @@
-# servicios relacionados con la elegibilidad del usuario para la rifa
 
 def verificar_elegibilidad(usuario_id):
     """
