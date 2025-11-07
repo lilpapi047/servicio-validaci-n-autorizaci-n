@@ -26,10 +26,10 @@ def test_db():
 
     # 🔹 LIMPIEZA CORRECTA
     Base.metadata.drop_all(bind=engine)
-    engine.dispose()  # 🔸 Cierra todas las conexiones y libera el archivo
+    engine.dispose()  #  Cierra todas las conexiones y libera el archivo
     os.close(db_fd)
     try:
-        os.unlink(db_path)  # 🔸 Ahora sí podemos borrarlo sin error
+        os.unlink(db_path)  #  Ahora sí podemos borrarlo sin error
     except PermissionError:
         # En caso de que Windows aún lo mantenga bloqueado, lo ignoramos
         pass
