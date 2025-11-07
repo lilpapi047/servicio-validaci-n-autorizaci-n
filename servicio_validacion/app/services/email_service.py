@@ -39,12 +39,12 @@ def send_verification_email(to_email: str, token: str) -> bool:
     try:
         resend.Emails.send({
             "from": "no-reply@tu-dominio.com",
-            "to": [to_email],  # 👈 importante, debe ser una lista
+            "to": [to_email],  # importante, debe ser una lista
             "subject": "Verifica tu cuenta",
             "html": html_content,
         })
         print(f"Correo de verificación enviado a {to_email}")
-        return True  # 👈 esto permite que tu test unitario pase correctamente
+        return True  # esto permite que tu test unitario pase correctamente
     except Exception as e:
         print(f"Error enviando correo a {to_email}: {e}")
         return False
