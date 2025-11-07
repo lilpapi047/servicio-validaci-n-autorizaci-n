@@ -13,9 +13,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/auth-service
 
     env:
       DATABASE_URL: "sqlite:///:memory:"
@@ -33,18 +30,20 @@ jobs:
         with:
           python-version: "3.11.9"
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias (desde raíz)
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install flake8 pytest pytest-asyncio
 
       - name: Lint con flake8
+        working-directory: services/auth-service
         run: |
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Ejecutar tests con pytest
+        working-directory: services/auth-service
         run: |
-          echo "✅ Ejecutando pruebas unitarias (usando SQLite temporal)..."
+          echo "Ejecutando pruebas unitarias (usando SQLite temporal)..."
           pytest -v --disable-warnings
