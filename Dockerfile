@@ -1,6 +1,3 @@
-# ===============================
-# 🔹 Etapa base: imagen liviana
-# ===============================
 FROM python:3.11-slim
 
 # Evitar archivos .pyc y asegurar salida inmediata
@@ -24,7 +21,7 @@ COPY . .
 USER appuser
 
 # Exponer el puerto de FastAPI
-EXPOSE 8000
+EXPOSE 8020
 
 # Comando para iniciar la app con autoreload (útil en desarrollo)
-CMD ["uvicorn", "servicio_validacion.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "servicio_validacion.main:app", "--host", "0.0.0.0", "--port", "8020", "--reload"]
