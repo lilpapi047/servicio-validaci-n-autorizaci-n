@@ -1,5 +1,5 @@
 import datetime as dt
-from .conftest import _make_user, _make_match
+from conftest import _make_user, _make_match
 
 
 def test_eligibility_email_not_verified(client, db):
