@@ -1,4 +1,4 @@
-name: Run auth-service tests
+name: Run auth_service tests
 
 on:
   push:
@@ -37,15 +37,15 @@ jobs:
           pip install flake8 pytest pytest-asyncio
 
       - name: Lint con flake8
-        working-directory: services/auth-service
+        working-directory: services/auth_service
         run: |
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Ejecutar tests con pytest
-        working-directory: services/auth-service
+        working-directory: services/auth_service
         env:
-          PYTHONPATH: "${{ github.workspace }}/services/auth-service"
+          PYTHONPATH: "${{ github.workspace }}/services/auth_service"
         run: |
-          echo "✅ Ejecutando pruebas unitarias (usando SQLite temporal)..."
+          echo "Ejecutando pruebas unitarias (usando SQLite temporal)..."
           pytest -v --disable-warnings
