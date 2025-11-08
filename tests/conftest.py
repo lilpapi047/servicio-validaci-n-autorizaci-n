@@ -1,56 +1,72 @@
-import os
 import pytest
+from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
+from services.api.database import Base, get_db
 from services.api.main import app
-from services.api.database import Base, get_db  # <-- FIXED
+from services.api import models
 
-TEST_DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg2://postgres:753951@localhost:5432/app_test",
-)
 
-engine = create_engine(TEST_DATABASE_URL, future=True)
-TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-@pytest.fixture(scope="session", autouse=True)
-def _create_test_db():
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
-@pytest.fixture(autouse=True)
-def _clean_tables():
-    with engine.begin() as conn:
-        conn.exec_driver_sql("""
-            TRUNCATE TABLE
-              raffle_assignment,
-              attendance_ban,
-              email_verification,
-              match,
-              "user"
-            RESTART IDENTITY CASCADE;
-        """)
-    yield
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_db] = override_get_db
+
+
+@pytest.fixture
+def client():
+    with TestClient(app) as c:
+        yield c
+
 
 @pytest.fixture
 def db():
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
+    db = TestingSessionLocal()
+    # DB limpia
+    for table in reversed(Base.metadata.sorted_tables):
+        db.execute(table.delete())
+    db.commit()
+    yield db
+    db.close()
 
-@pytest.fixture
-def client(db):
-    def _override_get_db():
-        try:
-            yield db
-        finally:
-            pass
-    app.dependency_overrides[get_db] = _override_get_db
-    with TestClient(app) as c:
-        yield c
-    app.dependency_overrides.clear()
+
+def _make_user(db, *, email="test@example.com", verified=False, dob=None):
+    u = models.User(
+        email=email,
+        hash_pwd="x",
+        is_verified=verified,
+        date_of_birth=dob or datetime(2000, 1, 1),
+    )
+    db.add(u)
+    db.commit()
+    db.refresh(u)
+    return u
+
+
+def _make_match(db, *, kickoff=None):
+    if kickoff is None:
+        kickoff = datetime.now(timezone.utc) + timedelta(days=7)
+    m = models.Match(
+        stadium_id=1,
+        home_team_id=1,
+        away_team_id=2,
+        phase_id=1,
+        kickoff_at=kickoff,
+    )
+    db.add(m)
+    db.commit()
+    db.refresh(m)
+    return m
