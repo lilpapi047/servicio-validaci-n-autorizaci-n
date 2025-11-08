@@ -48,4 +48,5 @@ jobs:
           PYTHONPATH: "${{ github.workspace }}/services/auth_service"
         run: |
           echo "Ejecutando pruebas unitarias (usando SQLite temporal)..."
+          export PYTHONPATH="${PYTHONPATH}:$(pwd)"
           pytest -v --disable-warnings
