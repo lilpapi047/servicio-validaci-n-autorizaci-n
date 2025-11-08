@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()  # Carga las variables de .env
 
 DATABASE_USER = os.getenv("DB_USER", "postgres")
-DATABASE_HOST = os.getenv("DB_HOST", "localhost")
-DATABASE_NAME = os.getenv("DB_NAME", "sigma")
-DATABASE_PASSWORD = os.getenv("DB_PASSWORD", "sigma")
+DATABASE_HOST = os.getenv("DB_HOST", "")
+DATABASE_NAME = os.getenv("DB_NAME", "")
+DATABASE_PASSWORD = os.getenv("DB_PASSWORD", "")
 DATABASE_PORT = int(os.getenv("DB_PORT", 5432))
 
 pool = None  # Pool global
