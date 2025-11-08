@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api.routers import login, register, tokens
+from services.auth_service.api.routers import login, register, tokens
 
 
 app = FastAPI(title="Auth Service")
