@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from services.auth_service.database import Base, get_db
-from main import app
+from services.auth_service.main import app
 import tempfile
 import os
 
