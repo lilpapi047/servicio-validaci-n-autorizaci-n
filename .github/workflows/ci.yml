@@ -30,6 +30,7 @@ jobs:
       PURCHASE_BASE_URL: https://tickets.example.com/checkout
       ADMIN_API_TOKEN: test-admin-token
       EMAIL_PROVIDER: stub
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout
