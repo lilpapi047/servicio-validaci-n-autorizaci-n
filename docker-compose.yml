@@ -3,7 +3,7 @@ services:
     build:
       context: .
     env_file:
-      - .env
+      - ./.env
     ports:
       - "8010:8010"
     command: >

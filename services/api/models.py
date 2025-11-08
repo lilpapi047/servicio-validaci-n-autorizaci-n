@@ -1,7 +1,9 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, TIMESTAMP, Text, Date, CHAR, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy import JSON
 from .database import Base
+
 
 class User(Base):
     __tablename__ = "user"
@@ -53,3 +55,24 @@ class EmailVerification(Base):
     token = Column(String, unique=True, nullable=False)
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
     consumed_at = Column(TIMESTAMP(timezone=True))
+
+class EligibilityCriterion(Base):
+    __tablename__ = "eligibility_criterion"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, nullable=False)      # 'email_verified','not_banned','min_age','no_open_raffle'
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    active = Column(Boolean, default=True, nullable=False)
+    value_int = Column(Integer)                             # edad mínima
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+class EligibilityAudit(Base):
+    __tablename__ = "eligibility_audit"
+    id = Column(Integer, primary_key=True, index=True)
+    actor = Column(String, nullable=False)                  # 'system' | email/id; | 'admin:<user_id>'
+    action = Column(String, nullable=False)                 # 'create','update','toggle'
+    criterion_id = Column(Integer, ForeignKey("eligibility_criterion.id"), nullable=False)
+    before_json = Column(Text)                              # Almacena el JSON
+    after_json  = Column(Text)
+    at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
