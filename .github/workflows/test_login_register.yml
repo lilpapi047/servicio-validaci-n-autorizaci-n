@@ -43,10 +43,8 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Ejecutar tests con pytest
-        working-directory: services/auth_service
         env:
-          PYTHONPATH: "${{ github.workspace }}/services/auth_service"
+          PYTHONPATH: "${{ github.workspace }}"
         run: |
           echo "Ejecutando pruebas unitarias (usando SQLite temporal)..."
-          export PYTHONPATH="${PYTHONPATH}:$(pwd)"
           pytest -v --disable-warnings
