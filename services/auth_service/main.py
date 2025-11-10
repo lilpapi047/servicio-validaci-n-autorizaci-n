@@ -1,8 +1,20 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from services.auth_service.api.routers import login, register, tokens
 
 
 app = FastAPI(title="Auth Service")
+
+# Configuración de CORS para permitir peticiones desde el frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],  # Permite todos los métodos HTTP (GET, POST, PUT, DELETE, OPTIONS)
+    allow_headers=["*"],  # Permite todos los headers
+)
 
 # Rutas
 app.include_router(register.router)
