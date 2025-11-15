@@ -1,0 +1,32 @@
+name: Protección de Branch Principal
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Verificar que viene de una feature branch
+      run: |
+        if [[ ! "${{ github.head_ref }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
+          echo "Error: Los PR a main deben venir de branches feature/*, bugfix/* o hotfix/*"
+          exit 1
+        fi
+
+    - name: Verificar que no hay conflictos
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Comprobar merge limpio
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git fetch origin main
+        git merge-base --is-ancestor HEAD origin/main || {
+          echo "Error: La rama no está actualizada con main"
+          exit 1
+        }
