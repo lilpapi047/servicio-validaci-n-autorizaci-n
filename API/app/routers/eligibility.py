@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 import os
 from ..database import get_db
 from .. import models
-from ..services.eligibility_rules import evaluate_eligibility
+from ...eligibility_rules import evaluate_eligibility
 
 router = APIRouter()
 

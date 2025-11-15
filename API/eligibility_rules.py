@@ -1,7 +1,6 @@
-# services/api/services/eligibility_rules.py
 from datetime import date
 from sqlalchemy.orm import Session
-from .. import models
+from API.app.models import models
 
 def compute_age_years(dob: date, on_day: date) -> int:
     y = on_day.year - dob.year
