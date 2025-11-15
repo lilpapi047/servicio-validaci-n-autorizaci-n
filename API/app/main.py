@@ -18,6 +18,7 @@ from app.routers import (
     match             # Información de partidos si aplica
 )
 
+
 # ---------------------------------------------------------
 # 🔹 Crear la aplicación FastAPI
 # ---------------------------------------------------------
