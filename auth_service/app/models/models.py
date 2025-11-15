@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, TIMESTAMP, Text, Date, CHAR, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from services.auth_service.database import Base
+from auth_service.app.database import Base
 
 class User(Base):
     __tablename__ = "user"

@@ -2,8 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from services.auth_service.database import Base, get_db
-from services.auth_service.main import app
+from auth_service.app.database import Base, get_db
+from auth_service.main import app
 import tempfile
 import os
 

@@ -30,4 +30,4 @@ EXPOSE 8030
 ENV PYTHONPATH=/app
 
 # Comando por defecto: iniciar FastAPI
-CMD ["uvicorn", "services.auth_service.main:app", "--host", "0.0.0.0", "--port", "8030"]
+CMD ["uvicorn", "auth_service.main:app", "--host", "0.0.0.0", "--port", "8030"]
