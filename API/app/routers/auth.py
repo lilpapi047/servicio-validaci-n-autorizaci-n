@@ -1,60 +1,103 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from jose import jwt, JWTError
 from datetime import datetime, timedelta
-from app.database import get_db
-from app.models.user import User
-from app.services.email_service import send_verification_email
-from app.schemas.user import UserRegister
-from shared.config import settings
-import pyotp
 import re
 
-router = APIRouter(prefix="/auth", tags=["Autenticación"])
+from fastapi import APIRouter, Depends, HTTPException, status
+from jose import jwt, JWTError
+from passlib.context import CryptContext
+from sqlalchemy.orm import Session
+import pyotp
+
+from app.database import get_db
+from app import models
+from app.schemas.user import UserCreate, UserOut, UserRegister
+from app.services.email_service import send_verification_email
+from shared.config import settings  # ajusta si tu settings está en otro sitio
+
+router = APIRouter(prefix="/auth", tags=["Auth"])
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+# ---------------------------------------
+# Helper común para crear usuarios
+# ---------------------------------------
+def _create_user(payload: UserCreate | UserRegister, db: Session) -> models.User:
+    """
+    Crea un usuario nuevo en la base de datos:
+    - Verifica duplicidad de email.
+    - Hashea la contraseña.
+    - Marca is_verified=False por defecto.
+    """
+    existing = db.query(models.User).filter(models.User.email == payload.email).first()
+    if existing:
+        # el test acepta 400 o 409; usamos 409 como en tu otro script
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
+        )
+
+    # validación básica de contraseña (por si el esquema no lo hizo)
+    if len(payload.password) < 8 or not re.search(r"[A-Z]", payload.password) or not re.search(r"\d", payload.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña debe tener al menos 8 caracteres, una mayúscula y un número.",
+        )
+
+    user = models.User(
+        email=payload.email,
+        hash_pwd=pwd_context.hash(payload.password),
+        is_verified=False,
+        first_name=getattr(payload, "first_name", None),
+        last_name=getattr(payload, "last_name", None),
+        date_of_birth=getattr(payload, "date_of_birth", None),
+        country_code=(getattr(payload, "country_code", None) or None),
+        phone=getattr(payload, "phone", None),
+    )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
 
 # ==============================
-# 🔹 Registro de usuario local
+# 🔹 Signup básico (para tests / API interna)
+# ==============================
+@router.post("/signup", response_model=UserOut)
+def signup(payload: UserCreate, db: Session = Depends(get_db)):
+    """
+    Crea un usuario y devuelve el objeto.
+    No envía correo, pensado para flujos internos / tests.
+    """
+    user = _create_user(payload, db)
+    return user
+
+
+# ==============================
+#  Registro con correo de verificación
 # ==============================
 @router.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
     """
-    Registra un nuevo usuario en la base de datos local.
-    Envía un correo de verificación con un token JWT.
+    Registra un nuevo usuario y envía correo de verificación con token JWT.
     """
-    # Verificar si ya existe el usuario
-    existing_user = db.query(User).filter(User.email == user.email).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+    created_user = _create_user(user, db)
 
-    # Validar contraseña mínima (opcional)
-    if len(user.password) < 8 or not re.search(r"[A-Z]", user.password) or not re.search(r"\d", user.password):
-        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres, una mayúscula y un número.")
-
-    # Crear nuevo usuario
-    new_user = User(
-        email=user.email,
-        password=user.password,  # (Idealmente deberías encriptarla)
-        is_verified=False
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    # Generar token JWT de verificación
     token_data = {
-        "sub": user.email,
-        "exp": datetime.utcnow() + timedelta(hours=24)
+        "sub": created_user.email,
+        "exp": datetime.utcnow() + timedelta(hours=24),
     }
     token = jwt.encode(token_data, settings.SECRET_KEY, algorithm="HS256")
 
-    # Enviar correo
-    send_verification_email(user.email, token)
+    send_verification_email(created_user.email, token)
 
-    return {"message": "Usuario registrado exitosamente. Se envió un correo de verificación."}
+    return {
+        "message": "Usuario registrado exitosamente. Se envió un correo de verificación."
+    }
 
 
 # ==============================
-# 🔹 Verificar correo (token enviado por email)
+#  Verificar correo (token enviado por email)
 # ==============================
 @router.get("/verify")
 def verify_account(token: str, db: Session = Depends(get_db)):
@@ -64,11 +107,10 @@ def verify_account(token: str, db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
         email = payload.get("sub")
-
         if email is None:
             raise HTTPException(status_code=400, detail="Token inválido")
 
-        user = db.query(User).filter(User.email == email).first()
+        user = db.query(models.User).filter(models.User.email == email).first()
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -81,14 +123,14 @@ def verify_account(token: str, db: Session = Depends(get_db)):
 
 
 # ==============================
-# 🔹 Reenviar correo de verificación
+#  Reenviar correo de verificación
 # ==============================
 @router.post("/verify/send")
 def resend_verification(user_email: str, db: Session = Depends(get_db)):
     """
     Reenvía el correo de verificación a un usuario no verificado.
     """
-    user = db.query(User).filter(User.email == user_email).first()
+    user = db.query(models.User).filter(models.User.email == user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -97,7 +139,7 @@ def resend_verification(user_email: str, db: Session = Depends(get_db)):
 
     token_data = {
         "sub": user.email,
-        "exp": datetime.utcnow() + timedelta(hours=24)
+        "exp": datetime.utcnow() + timedelta(hours=24),
     }
     token = jwt.encode(token_data, settings.SECRET_KEY, algorithm="HS256")
 
@@ -106,14 +148,14 @@ def resend_verification(user_email: str, db: Session = Depends(get_db)):
 
 
 # ==============================
-# 🔹 Habilitar autenticación 2FA
+#  Habilitar autenticación 2FA
 # ==============================
 @router.post("/2fa/enable")
 def enable_2fa(user_email: str, db: Session = Depends(get_db)):
     """
     Genera y asocia una clave secreta para activar 2FA.
     """
-    user = db.query(User).filter(User.email == user_email).first()
+    user = db.query(models.User).filter(models.User.email == user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -121,28 +163,36 @@ def enable_2fa(user_email: str, db: Session = Depends(get_db)):
     user.twofa_secret = secret
     db.commit()
 
-    otp_uri = pyotp.totp.TOTP(secret).provisioning_uri(name=user.email, issuer_name="Sistema de Boletos")
+    otp_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+        name=user.email, issuer_name="Sistema de Boletos"
+    )
     return {
         "message": "2FA habilitado correctamente",
-        "otpauth_url": otp_uri
+        "otpauth_url": otp_uri,
     }
 
 
 # ==============================
-# 🔹 Verificar código 2FA
+#  Verificar código 2FA
 # ==============================
 @router.post("/2fa/verify")
 def verify_2fa(user_email: str, code: str, db: Session = Depends(get_db)):
     """
     Verifica el código temporal del 2FA.
     """
-    user = db.query(User).filter(User.email == user_email).first()
-    if not user or not user.twofa_secret:
-        raise HTTPException(status_code=400, detail="2FA no configurado para este usuario")
+    user = db.query(models.User).filter(models.User.email == user_email).first()
+    if not user or not getattr(user, "twofa_secret", None):
+        raise HTTPException(
+            status_code=400,
+            detail="2FA no configurado para este usuario",
+        )
 
     totp = pyotp.TOTP(user.twofa_secret)
     if not totp.verify(code):
-        raise HTTPException(status_code=400, detail="Código 2FA inválido o expirado")
+        raise HTTPException(
+            status_code=400,
+            detail="Código 2FA inválido o expirado",
+        )
 
     user.is_2fa_enabled = True
     db.commit()
