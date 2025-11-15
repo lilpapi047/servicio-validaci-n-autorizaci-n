@@ -14,5 +14,5 @@ app.include_router(eligibilidad_router, prefix="/verificar-eligibilidad")
 app.include_router(asignacion_router, prefix="/asignar-rifa")
 
 if __name__ == "__main__":
-    PORT = int(os.getenv("PORT", 3000))
+    PORT = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=PORT)
