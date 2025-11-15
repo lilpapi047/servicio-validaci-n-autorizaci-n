@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 
@@ -7,9 +8,24 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from API.app.main import app
-from API.app.database import Base, get_db
-from API.app import models
+# ------------------------------------------------------------------
+# Make sure Python can see the "app" package inside API/
+# ------------------------------------------------------------------
+# conftest.py is in: project_root/test/unit/conftest.py
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+API_DIR = os.path.join(PROJECT_ROOT, "API")
+
+# Make sure the project root is on sys.path (so we can import `shared`, etc.)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+# Make sure API/ is also on sys.path (so we can import `app`)
+if API_DIR not in sys.path:
+    sys.path.insert(0, API_DIR)
+
+from app.main import app
+from app.database import Base, get_db
+from app.models import User, Match
 
 
 # -----------------------------
@@ -21,7 +37,6 @@ def engine_and_sessionmaker():
     Crea una base de datos SQLite temporal para toda la sesión de tests
     y devuelve (engine, SessionLocal).
     """
-    # archivo temporal
     db_fd, db_path = tempfile.mkstemp()
     sqlalchemy_url = f"sqlite:///{db_path}"
 
@@ -35,19 +50,16 @@ def engine_and_sessionmaker():
         bind=engine,
     )
 
-    # crear tablas una sola vez
     Base.metadata.create_all(bind=engine)
 
     yield engine, TestingSessionLocal
 
-    # limpieza al final de la sesión
     Base.metadata.drop_all(bind=engine)
     engine.dispose()
     os.close(db_fd)
     try:
         os.unlink(db_path)
     except PermissionError:
-        # por si Windows lo bloquea un momento
         pass
 
 
@@ -63,7 +75,6 @@ def db(engine_and_sessionmaker):
     engine, TestingSessionLocal = engine_and_sessionmaker
     db = TestingSessionLocal()
 
-    # limpiar todas las tablas antes de cada test (como en tu segundo conftest)
     for table in reversed(Base.metadata.sorted_tables):
         db.execute(table.delete())
     db.commit()
@@ -75,7 +86,6 @@ def db(engine_and_sessionmaker):
         db.close()
 
 
-# alias opcional si algunos tests esperan el nombre db_session
 @pytest.fixture(scope="function")
 def db_session(db):
     """
@@ -96,7 +106,6 @@ def client(db):
         try:
             yield db
         finally:
-            # db se cierra en el fixture `db`
             pass
 
     app.dependency_overrides[get_db] = override_get_db
@@ -115,9 +124,9 @@ def _make_user(db, *, email="test@example.com", verified=False, dob=None):
     Crea un usuario de prueba.
     Ajusta los campos según tu modelo real de User.
     """
-    u = models.User(
+    u = User(
         email=email,
-        hash_pwd="x",  # pon aquí un hash válido si tus tests lo necesitan
+        hash_pwd="x",
         is_verified=verified,
         date_of_birth=dob or datetime(2000, 1, 1),
     )
@@ -135,7 +144,7 @@ def _make_match(db, *, kickoff=None):
     if kickoff is None:
         kickoff = datetime.now(timezone.utc) + timedelta(days=7)
 
-    m = models.Match(
+    m = Match(
         stadium_id=1,
         home_team_id=1,
         away_team_id=2,

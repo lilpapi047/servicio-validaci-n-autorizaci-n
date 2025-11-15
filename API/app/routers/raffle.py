@@ -8,8 +8,8 @@ import os, secrets
 
 from ..database import get_db
 from .. import models
-from ...notifications import send_email_mailtrap
-from ...eligibility_rules import evaluate_eligibility 
+from ..notifications import send_email_mailtrap
+from ..eligibility_rules import evaluate_eligibility 
 
 router = APIRouter()
 

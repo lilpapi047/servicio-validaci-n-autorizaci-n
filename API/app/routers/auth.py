@@ -3,50 +3,54 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import jwt, JWTError
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 import pyotp
 
 from app.database import get_db
-from app import models
-from app.schemas.user import UserCreate, UserOut, UserRegister
+from app import security
+from app.models import User
+from app.schemas.user import UserCreate, UserRegister, UserOut
 from app.services.email_service import send_verification_email
-from shared.config import settings  # ajusta si tu settings está en otro sitio
+from shared.config import settings
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+# ⚠️ IMPORTANT:
+# main.py should include this router WITHOUT an extra prefix:
+#   app.include_router(auth.router)
+# because this router already has prefix="/auth"
+router = APIRouter(prefix="/auth", tags=["auth"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-# ---------------------------------------
+# -----------------------------
 # Helper común para crear usuarios
-# ---------------------------------------
-def _create_user(payload: UserCreate | UserRegister, db: Session) -> models.User:
+# -----------------------------
+def _create_user(payload: UserCreate | UserRegister, db: Session) -> User:
     """
     Crea un usuario nuevo en la base de datos:
     - Verifica duplicidad de email.
     - Hashea la contraseña.
     - Marca is_verified=False por defecto.
     """
-    existing = db.query(models.User).filter(models.User.email == payload.email).first()
+    existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
-        # el test acepta 400 o 409; usamos 409 como en tu otro script
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered",
         )
 
-    # validación básica de contraseña (por si el esquema no lo hizo)
-    if len(payload.password) < 8 or not re.search(r"[A-Z]", payload.password) or not re.search(r"\d", payload.password):
+    # Validación básica de contraseña (por si el esquema no lo hizo)
+    if (
+        len(payload.password) < 8
+        or not re.search(r"[A-Z]", payload.password)
+        or not re.search(r"\d", payload.password)
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La contraseña debe tener al menos 8 caracteres, una mayúscula y un número.",
         )
 
-    user = models.User(
+    user = User(
         email=payload.email,
-        hash_pwd=pwd_context.hash(payload.password),
-        is_verified=False,
+        hash_pwd=security.get_password_hash(payload.password),
+        is_verified=False,  # ✅ new user is not verified
         first_name=getattr(payload, "first_name", None),
         last_name=getattr(payload, "last_name", None),
         date_of_birth=getattr(payload, "date_of_birth", None),
@@ -61,20 +65,20 @@ def _create_user(payload: UserCreate | UserRegister, db: Session) -> models.User
 
 
 # ==============================
-# 🔹 Signup básico (para tests / API interna)
+# Signup básico (para tests / API interna)
 # ==============================
 @router.post("/signup", response_model=UserOut)
-def signup(payload: UserCreate, db: Session = Depends(get_db)):
+def signup(payload: UserCreate, db: Session = Depends(get_db)) -> UserOut:
     """
     Crea un usuario y devuelve el objeto.
     No envía correo, pensado para flujos internos / tests.
     """
     user = _create_user(payload, db)
-    return user
+    return user  # ✅ FastAPI serializa usando UserOut (incluye is_verified)
 
 
 # ==============================
-#  Registro con correo de verificación
+# Registro con correo de verificación
 # ==============================
 @router.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
@@ -87,7 +91,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         "sub": created_user.email,
         "exp": datetime.utcnow() + timedelta(hours=24),
     }
-    token = jwt.encode(token_data, settings.SECRET_KEY, algorithm="HS256")
+    token = jwt.encode(token_data, settings.SECRET_KEY, algorithm=settings.algorithm)
 
     send_verification_email(created_user.email, token)
 
@@ -97,7 +101,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 
 
 # ==============================
-#  Verificar correo (token enviado por email)
+# Verificar correo (token enviado por email)
 # ==============================
 @router.get("/verify")
 def verify_account(token: str, db: Session = Depends(get_db)):
@@ -105,12 +109,12 @@ def verify_account(token: str, db: Session = Depends(get_db)):
     Verifica el token de confirmación enviado al correo.
     """
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.algorithm])
         email = payload.get("sub")
         if email is None:
             raise HTTPException(status_code=400, detail="Token inválido")
 
-        user = db.query(models.User).filter(models.User.email == email).first()
+        user = db.query(User).filter(User.email == email).first()
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -123,14 +127,14 @@ def verify_account(token: str, db: Session = Depends(get_db)):
 
 
 # ==============================
-#  Reenviar correo de verificación
+# Reenviar correo de verificación
 # ==============================
 @router.post("/verify/send")
 def resend_verification(user_email: str, db: Session = Depends(get_db)):
     """
     Reenvía el correo de verificación a un usuario no verificado.
     """
-    user = db.query(models.User).filter(models.User.email == user_email).first()
+    user = db.query(User).filter(User.email == user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -141,21 +145,21 @@ def resend_verification(user_email: str, db: Session = Depends(get_db)):
         "sub": user.email,
         "exp": datetime.utcnow() + timedelta(hours=24),
     }
-    token = jwt.encode(token_data, settings.SECRET_KEY, algorithm="HS256")
+    token = jwt.encode(token_data, settings.SECRET_KEY, algorithm=settings.algorithm)
 
     send_verification_email(user.email, token)
     return {"message": "Correo de verificación reenviado exitosamente"}
 
 
 # ==============================
-#  Habilitar autenticación 2FA
+# Habilitar autenticación 2FA
 # ==============================
 @router.post("/2fa/enable")
 def enable_2fa(user_email: str, db: Session = Depends(get_db)):
     """
     Genera y asocia una clave secreta para activar 2FA.
     """
-    user = db.query(models.User).filter(models.User.email == user_email).first()
+    user = db.query(User).filter(User.email == user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -173,14 +177,14 @@ def enable_2fa(user_email: str, db: Session = Depends(get_db)):
 
 
 # ==============================
-#  Verificar código 2FA
+# Verificar código 2FA
 # ==============================
 @router.post("/2fa/verify")
 def verify_2fa(user_email: str, code: str, db: Session = Depends(get_db)):
     """
     Verifica el código temporal del 2FA.
     """
-    user = db.query(models.User).filter(models.User.email == user_email).first()
+    user = db.query(User).filter(User.email == user_email).first()
     if not user or not getattr(user, "twofa_secret", None):
         raise HTTPException(
             status_code=400,

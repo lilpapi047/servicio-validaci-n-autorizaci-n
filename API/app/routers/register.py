@@ -1,14 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app import models
-from app import security
-from app.schemas.userCreate import userCreate as schemas
+from app import models, security
+from app.schemas.user import UserCreate, UserOut
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-@router.post("/register", response_model=schemas.UserOut)
-def register_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+@router.post("/register", response_model=UserOut)   # ⬅️ use UserOut directly
+def register_user(payload: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")

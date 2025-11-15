@@ -1,14 +1,22 @@
 from sqlalchemy import (
-    Column, Integer, String, Boolean, ForeignKey, TIMESTAMP,
-    Text, Date, CHAR
+    Column,
+    Integer,
+    String,
+    Boolean,
+    ForeignKey,
+    TIMESTAMP,
+    Text,
+    Date,
+    CHAR,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
 
+
 # ============================================================
-# USER MODEL (UNIFICADO)
+# USER MODEL
 # ============================================================
 
 class User(Base):
@@ -17,8 +25,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
 
-    # Password field unificado
-    hashed_password = Column(String, nullable=False)
+    # Campo de contraseña que usa el servicio (hash_pwd)
+    hash_pwd = Column(String, nullable=False)
 
     # Datos personales
     first_name = Column(String)
@@ -38,7 +46,24 @@ class User(Base):
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
-        nullable=False
+        nullable=False,
+    )
+
+    # Relationships (opcionales, pero útiles)
+    raffle_assignments = relationship(
+        "RaffleAssignment",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    attendance_bans = relationship(
+        "AttendanceBan",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    email_verifications = relationship(
+        "EmailVerification",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
 
@@ -55,6 +80,12 @@ class Match(Base):
     away_team_id = Column(Integer, nullable=False)
     phase_id = Column(Integer, nullable=False)
     kickoff_at = Column(TIMESTAMP(timezone=True), nullable=False)
+
+    raffle_assignments = relationship(
+        "RaffleAssignment",
+        back_populates="match",
+        cascade="all, delete-orphan",
+    )
 
 
 # ============================================================
@@ -74,9 +105,12 @@ class RaffleAssignment(Base):
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
-        nullable=False
+        nullable=False,
     )
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
+
+    user = relationship("User", back_populates="raffle_assignments")
+    match = relationship("Match", back_populates="raffle_assignments")
 
 
 # ============================================================
@@ -96,8 +130,10 @@ class AttendanceBan(Base):
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
-        nullable=False
+        nullable=False,
     )
+
+    user = relationship("User", back_populates="attendance_bans")
 
 
 # ============================================================
@@ -112,6 +148,8 @@ class EmailVerification(Base):
     token = Column(String, unique=True, nullable=False)
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
     consumed_at = Column(TIMESTAMP(timezone=True))
+
+    user = relationship("User", back_populates="email_verifications")
 
 
 # ============================================================
@@ -131,13 +169,19 @@ class EligibilityCriterion(Base):
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
-        nullable=False
+        nullable=False,
     )
     updated_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
-        nullable=False
+        nullable=False,
+    )
+
+    audits = relationship(
+        "EligibilityAudit",
+        back_populates="criterion",
+        cascade="all, delete-orphan",
     )
 
 
@@ -154,12 +198,14 @@ class EligibilityAudit(Base):
     criterion_id = Column(
         Integer,
         ForeignKey("eligibility_criteria.id"),
-        nullable=False
+        nullable=False,
     )
     before_json = Column(Text)
     after_json = Column(Text)
     at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
-        nullable=False
+        nullable=False,
     )
+
+    criterion = relationship("EligibilityCriterion", back_populates="audits")

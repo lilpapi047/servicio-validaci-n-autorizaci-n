@@ -1,6 +1,6 @@
 from datetime import date
 from sqlalchemy.orm import Session
-from API.app.models import models
+from app import models
 
 def compute_age_years(dob: date, on_day: date) -> int:
     y = on_day.year - dob.year

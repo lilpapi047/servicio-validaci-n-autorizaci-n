@@ -36,19 +36,27 @@ class UserRegister(UserBase):
                 "password": "Segura123",
             }
         }
+        orm_mode = True
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: constr(min_length=8)
 
+    class Config:
+        orm_mode = True
+
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
 
+    class Config:
+        orm_mode = True
+
 
 class UserOut(UserBase):
     id: int
+    is_verified: bool
 
     class Config:
         # pydantic v1:
