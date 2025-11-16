@@ -2,27 +2,28 @@ name: CI
 
 on:
   push:
-    branches: 
+    branches:
       - feature/conexion-postgres
+      - main
   pull_request:
     branches:
       - feature/conexion-postgres
+      - main
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     services:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: neondb
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d neondb"
+          --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -33,7 +34,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: 3.11
 
       - name: Install dependencies
         run: |
@@ -42,6 +43,6 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/neondb
+          DATABASE_URL: postgres://testuser:testpass@localhost:5432/testdb
         run: |
           pytest --maxfail=1 --disable-warnings -v
