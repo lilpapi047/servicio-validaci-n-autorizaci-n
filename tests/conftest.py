@@ -8,10 +8,9 @@ from services.api.database import Base, get_db
 from services.api.main import app
 from services.api import models
 
-# Usa DATABASE_URL si existe, sino SQLite local
+# Tomar la variable de entorno DATABASE_URL o usar SQLite por defecto
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 
-# Configura SQLAlchemy según tipo de DB
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
@@ -19,10 +18,9 @@ else:
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Crea todas las tablas
+# Crear tablas si no existen
 Base.metadata.create_all(bind=engine)
 
-# Override get_db para FastAPI
 def override_get_db():
     db = TestingSessionLocal()
     try:
@@ -30,6 +28,7 @@ def override_get_db():
     finally:
         db.close()
 
+# Reemplaza la dependencia de FastAPI para tests
 app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture
@@ -40,13 +39,13 @@ def client():
 @pytest.fixture
 def db():
     db = TestingSessionLocal()
-    # Limpia tablas antes de cada test
     for table in reversed(Base.metadata.sorted_tables):
         db.execute(table.delete())
     db.commit()
     yield db
     db.close()
 
+# Funciones de ayuda para tests
 def _make_user(db, *, email="test@example.com", verified=False, dob=None):
     u = models.User(
         email=email,
