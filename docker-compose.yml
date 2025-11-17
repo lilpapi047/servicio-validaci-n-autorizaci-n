@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgres://testuser:testpass@neon-db:5432/testdb
     depends_on:
       - neon-db
 
