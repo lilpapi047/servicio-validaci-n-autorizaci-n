@@ -3,6 +3,5 @@ uvicorn[standard]
 asyncpg
 python-dotenv
 pytest
-
 SQLAlchemy
 httpx
