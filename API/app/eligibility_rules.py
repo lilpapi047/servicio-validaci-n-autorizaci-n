@@ -9,10 +9,12 @@ def compute_age_years(dob: date, on_day: date) -> int:
     return y
 
 def user_is_banned(db: Session, user_id: int) -> bool:
-    # adjust model/table names to your schema
     q = (
-        db.query(models.Ban)
-        .filter(models.Ban.user_id == user_id, models.Ban.active.is_(True))
+        db.query(models.AttendanceBan)
+        .filter(
+            models.AttendanceBan.user_id == user_id,
+            models.AttendanceBan.active.is_(True),
+        )
     )
     return db.query(q.exists()).scalar()
 

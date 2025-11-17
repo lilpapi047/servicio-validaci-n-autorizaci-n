@@ -1,0 +1,80 @@
+name: CI Tests
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - feature/**
+      - integracion-*
+  pull_request:
+    branches:
+      - main
+      - develop
+      - integracion-*
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app_test
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd="pg_isready -U postgres -d app_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/app_test
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev build-essential
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Wait for PostgreSQL
+        run: |
+          echo "Esperando a PostgreSQL..."
+          for i in {1..10}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "PostgreSQL está listo."
+              exit 0
+            fi
+            echo "PostgreSQL no está listo aún, reintentando..."
+            sleep 3
+          done
+          echo "No se detectó PostgreSQL → usando SQLite."
+          exit 0
+
+      - name: Run Flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run Pytest
+        run: |
+          echo "Ejecutando pruebas..."
+          pytest -v --disable-warnings
