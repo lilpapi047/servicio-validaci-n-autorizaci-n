@@ -37,7 +37,7 @@ jobs:
       PYTHONUNBUFFERED: "1"
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -57,24 +57,29 @@ jobs:
 
       - name: Wait for PostgreSQL
         run: |
-          echo "Esperando a PostgreSQL..."
           for i in {1..10}; do
             if pg_isready -h localhost -p 5432 -U postgres; then
-              echo "PostgreSQL está listo."
+              echo "PostgreSQL is ready."
               exit 0
             fi
-            echo "PostgreSQL no está listo aún, reintentando..."
+            echo "Waiting for PostgreSQL..."
             sleep 3
           done
-          echo "No se detectó PostgreSQL → usando SQLite."
-          exit 0
+          echo "PostgreSQL did not become ready in time."
+          exit 1
 
-      - name: Run Flake8
+      - name: Run Flake8 (strict)
         run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 . \
+            --exclude=venv,.venv,__pycache__,.git,build,dist \
+            --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Run Flake8 (permissive)
+        run: |
+          flake8 . \
+            --exclude=venv,.venv,__pycache__,.git,build,dist \
+            --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Run Pytest
         run: |
-          echo "Ejecutando pruebas..."
           pytest -v --disable-warnings
