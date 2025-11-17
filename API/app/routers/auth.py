@@ -6,11 +6,11 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 import pyotp
 
-from app.database import get_db
-from app import security
-from app.models import User
-from app.schemas.user import UserCreate, UserRegister, UserOut
-from app.services.email_service import send_verification_email
+from ..database import get_db
+from .. import security
+from ..models import User
+from ..schemas.user import UserCreate, UserRegister, UserOut
+from ..services.email_service import send_verification_email
 from shared.config import settings
 
 # ⚠️ IMPORTANT:

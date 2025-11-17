@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, constr, field_validator
+
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, constr, field_validator
 import re
 
 
@@ -29,37 +30,33 @@ class UserRegister(UserBase):
             raise ValueError("La contraseña debe tener al menos un número.")
         return value
 
-    class Config:
-        schema_extra = {
+    # Pydantic v2 config
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "email": "usuario@ejemplo.com",
                 "password": "Segura123",
             }
-        }
-        orm_mode = True
+        },
+    )
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: constr(min_length=8)
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserOut(UserBase):
     id: int
     is_verified: bool
 
-    class Config:
-        # pydantic v1:
-        orm_mode = True
-        # si usas pydantic v2, puedes cambiar a:
-        # from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

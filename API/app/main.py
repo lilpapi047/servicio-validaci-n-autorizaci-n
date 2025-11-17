@@ -3,10 +3,10 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, engine, init_db
+from .database import Base, engine, init_db
 
 # Routers del microservicio
-from app.routers import (
+from .routers import (
     login,
     register,
     tokens,
