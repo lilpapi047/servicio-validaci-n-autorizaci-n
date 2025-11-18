@@ -51,5 +51,6 @@ jobs:
       - name: Run tests
         env:
           DATABASE_URL: postgres://testuser:testpass@localhost:5432/testdb
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           pytest --maxfail=1 --disable-warnings -v
