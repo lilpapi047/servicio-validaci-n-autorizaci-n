@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from services.api.database import Base, get_db
-from services.api.main import app
+from main import app
 from services.api import models
 
 # Tomar la variable de entorno DATABASE_URL o usar SQLite por defecto
