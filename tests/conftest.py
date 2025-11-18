@@ -4,11 +4,13 @@ from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+# Si tu DB y models están en services.api, mantenlos así. 
+# Si no, ajusta las rutas.
 from services.api.database import Base, get_db
-from services.api.main import app
+from main import app       # <- IMPORT CORREGIDO
 from services.api import models
 
-# Tomar la variable de entorno DATABASE_URL o usar SQLite por defecto
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 
 if DATABASE_URL.startswith("sqlite"):
@@ -18,7 +20,6 @@ else:
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Crear tablas si no existen
 Base.metadata.create_all(bind=engine)
 
 def override_get_db():
@@ -28,7 +29,6 @@ def override_get_db():
     finally:
         db.close()
 
-# Reemplaza la dependencia de FastAPI para tests
 app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture
@@ -45,7 +45,6 @@ def db():
     yield db
     db.close()
 
-# Funciones de ayuda para tests
 def _make_user(db, *, email="test@example.com", verified=False, dob=None):
     u = models.User(
         email=email,
