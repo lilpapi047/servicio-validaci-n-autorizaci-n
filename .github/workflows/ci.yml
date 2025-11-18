@@ -3,11 +3,11 @@ name: CI
 on:
   push:
     branches:
-      - feature/conexion-postgres
+      - feature/conexion-postgres-limpia
       - main
   pull_request:
     branches:
-      - feature/conexion-postgres
+      - feature/conexion-postgres-limpia
       - main
 
 jobs:
