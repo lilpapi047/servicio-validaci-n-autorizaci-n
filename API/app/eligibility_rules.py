@@ -69,7 +69,7 @@ def evaluate_eligibility(
 
     # 1) email_verified
     if not user.is_verified or user.email_verified_at is None:
-        reasons.append("User email is not verified")
+        reasons.append("Email not verified")
 
     # 2) not_banned
     c_not_banned = criteria.get("not_banned")
