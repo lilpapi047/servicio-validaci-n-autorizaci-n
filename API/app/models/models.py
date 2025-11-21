@@ -24,7 +24,7 @@ from ..database import Base
 class User(Base):
     __tablename__ = "user"  # ← singular table
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(Text, unique=True, nullable=False, index=True)
     hash_pwd = Column(Text, nullable=False)
 
@@ -73,7 +73,7 @@ class User(Base):
 class Match(Base):
     __tablename__ = "match"  # ← singular
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     stadium_id = Column(BigInteger, nullable=False)
     home_team_id = Column(BigInteger, nullable=False)
     away_team_id = Column(BigInteger, nullable=False)
@@ -95,9 +95,9 @@ class Match(Base):
 class RaffleAssignment(Base):
     __tablename__ = "raffle_assignment"  # ← singular
 
-    id = Column(BigInteger, primary_key=True, index=True)
-    user_id = Column(BigInteger, ForeignKey("user.id"), nullable=False)
-    match_id = Column(BigInteger, ForeignKey("match.id"), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    match_id = Column(Integer, ForeignKey("match.id"), nullable=False)
     token = Column(Text, unique=True, nullable=False, index=True)
     status = Column(String, nullable=False)  # 'pending', 'claimed', 'expired', etc.
     created_at = Column(
@@ -119,12 +119,8 @@ class RaffleAssignment(Base):
 class AttendanceBan(Base):
     __tablename__ = "attendance_ban"  # ← singular
 
-    id = Column(BigInteger, primary_key=True, index=True)
-    user_id = Column(
-        BigInteger,
-        ForeignKey("user.id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     reason = Column(Text)
     active = Column(Boolean, nullable=False, default=True)
     until = Column(TIMESTAMP(timezone=True))
@@ -145,12 +141,8 @@ class AttendanceBan(Base):
 class EmailVerification(Base):
     __tablename__ = "email_verification"  # ← singular
 
-    id = Column(BigInteger, primary_key=True, index=True)
-    user_id = Column(
-        BigInteger,
-        ForeignKey("user.id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     token = Column(Text, nullable=False, unique=True, index=True)
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
     consumed_at = Column(TIMESTAMP(timezone=True))
@@ -166,7 +158,7 @@ class EmailVerification(Base):
 class EligibilityCriterion(Base):
     __tablename__ = "eligibility_criterion"  # ← **esta es la que ya tiene tus datos**
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     key = Column(Text, unique=True, nullable=False)
     name = Column(Text, nullable=False)
     description = Column(Text)
@@ -199,14 +191,10 @@ class EligibilityCriterion(Base):
 class EligibilityAudit(Base):
     __tablename__ = "eligibility_audit"  # ← singular
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     actor = Column(Text, nullable=False)
     action = Column(Text, nullable=False)
-    criterion_id = Column(
-        BigInteger,
-        ForeignKey("eligibility_criterion.id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    criterion_id = Column(Integer, ForeignKey("eligibility_criterion.id", ondelete="CASCADE"), nullable=False)
     before_json = Column(Text)
     after_json = Column(Text)
     at = Column(
@@ -220,7 +208,7 @@ class EligibilityAudit(Base):
 class AuditLog(Base):
     __tablename__ = "audit_log"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     actor = Column(Text, nullable=False)
     action = Column(Text, nullable=False)
     entity = Column(Text, nullable=False)
