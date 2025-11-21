@@ -68,7 +68,7 @@ def evaluate_eligibility(
     reasons: list[str] = []
 
     # 1) Email verificado (este SIEMPRE se aplica, los tests lo esperan así)
-    if not user.is_verified or user.email_verified_at is None:
+    if not user.is_verified:
         reasons.append("Email not verified")
 
     # 2) not_banned -> solo si el criterio está activo en la tabla
