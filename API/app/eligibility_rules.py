@@ -68,10 +68,8 @@ def evaluate_eligibility(
     reasons: list[str] = []
 
     # 1) email_verified
-    c_email = criteria.get("email_verified")
-    if c_email:
-        if not user.is_verified or user.email_verified_at is None:
-            reasons.append("User email is not verified")
+    if not user.is_verified or user.email_verified_at is None:
+        reasons.append("User email is not verified")
 
     # 2) not_banned
     c_not_banned = criteria.get("not_banned")
