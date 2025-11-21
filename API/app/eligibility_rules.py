@@ -67,17 +67,17 @@ def evaluate_eligibility(
     criteria = _load_active_criteria(db)
     reasons: list[str] = []
 
-    # 1) email_verified
+    # 1) Email verificado (este SIEMPRE se aplica, los tests lo esperan así)
     if not user.is_verified or user.email_verified_at is None:
         reasons.append("Email not verified")
 
-    # 2) not_banned
+    # 2) not_banned -> solo si el criterio está activo en la tabla
     c_not_banned = criteria.get("not_banned")
     if c_not_banned:
         if user_is_banned(db, user.id):
             reasons.append("User is banned from attending")
 
-    # 3) no_open_raffle
+    # 3) no_open_raffle -> solo si el criterio está activo en la tabla
     c_no_open_raffle = criteria.get("no_open_raffle")
     if c_no_open_raffle:
         if user_has_open_raffle(db, user.id, match.id):
@@ -85,21 +85,20 @@ def evaluate_eligibility(
                 "User already has a pending or claimed raffle assignment for this match"
             )
 
-    # 4) min_age
+    # 4) min_age -> SOLO se aplica si existe un criterio activo "min_age"
     c_min_age = criteria.get("min_age")
     if c_min_age:
+        # Si hay criterio, usamos su value_int; si viene en NULL, usamos el default
         min_age_years = c_min_age.value_int or default_min_age_years
-    else:
-        min_age_years = default_min_age_years
 
-    kickoff_day = match.kickoff_at.date()
-    if user.date_of_birth is None:
-        reasons.append("Missing date of birth")
-    else:
-        age = compute_age_years(user.date_of_birth, kickoff_day)
-        if age < int(min_age_years):
-            reasons.append(
-                f"User must be at least {min_age_years} years old on match day"
-            )
+        kickoff_day = match.kickoff_at.date()
+        if user.date_of_birth is None:
+            reasons.append("Missing date of birth")
+        else:
+            age = compute_age_years(user.date_of_birth, kickoff_day)
+            if age < int(min_age_years):
+                reasons.append(
+                    f"User must be at least {min_age_years} years old on match day"
+                )
 
     return (len(reasons) == 0, reasons)
