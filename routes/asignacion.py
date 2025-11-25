@@ -1,39 +1,32 @@
-from fastapi import APIRouter, HTTPException
-import asyncpg
-import os
-from dotenv import load_dotenv
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from services.api.database import get_db
+from services.elegibilidad.reintento_service import asignar_rifa
+import logging
 
-load_dotenv()
 router = APIRouter()
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-async def get_pool():
-    return await asyncpg.create_pool(DATABASE_URL)
+logger = logging.getLogger(__name__)
 
 
 @router.post("/asignar/{usuario_id}")
-async def asignar_boleto(usuario_id: int):
-    max_intentos = 3
-    intento = 0
-
+def asignar_boleto(usuario_id: int, db: Session = Depends(get_db)):
+    """Intenta asignar una rifa a un usuario con reintentos"""
     try:
-        pool = await get_pool()
-        async with pool.acquire() as conn:
-            while intento < max_intentos:
-                try:
-                    await conn.execute(
-                        "INSERT INTO boletos (usuario_id, asignado) VALUES ($1, TRUE)",
-                        usuario_id,
-                    )
-                    return {"mensaje": "Boleto asignado correctamente"}
-                except Exception as e:
-                    intento += 1
-                    print(f"Intento {intento} falló: {str(e)}")
-                    if intento >= max_intentos:
-                        raise HTTPException(
-                            status_code=500,
-                            detail="Error persistente: no se pudo asignar el boleto",
-                        )
+        resultado = asignar_rifa(usuario_id, intentos=3)
+        
+        if resultado:
+            return {
+                "usuario_id": usuario_id,
+                "mensaje": "Boleto asignado correctamente",
+                "asignado": True
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Error persistente: no se pudo asignar el boleto después de 3 intentos"
+            )
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en la conexión: {str(e)}")
+        logger.error(f"Error asignando boleto: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error en la asignación: {str(e)}")

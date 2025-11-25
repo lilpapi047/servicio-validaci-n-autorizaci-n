@@ -1,29 +1,29 @@
-from fastapi import APIRouter, HTTPException
-import asyncpg
-import os
-from dotenv import load_dotenv
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from services.api.database import get_db
+from services.api.models import User
+import logging
 
-load_dotenv()
 router = APIRouter()
-
-# Conexión a la base de datos
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-async def get_pool():
-    return await asyncpg.create_pool(DATABASE_URL)
+logger = logging.getLogger(__name__)
 
 @router.get("/usuarios/{usuario_id}")
-async def verificar_elegibilidad(usuario_id: int):
+def verificar_elegibilidad(usuario_id: int, db: Session = Depends(get_db)):
+    """Verifica si un usuario es elegible"""
     try:
-        pool = await get_pool()
-        async with pool.acquire() as conn:
-            result = await conn.fetchrow(
-                "SELECT elegible FROM usuarios WHERE id = $1", usuario_id
-            )
-
-            if not result:
-                raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-            return {"elegible": result["elegible"]}
+        user = db.query(User).filter(User.id == usuario_id).first()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        # Aquí puedes agregar lógica de elegibilidad
+        return {
+            "usuario_id": usuario_id,
+            "elegible": user.is_verified,
+            "email": user.email
+        }
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error verificando elegibilidad: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al verificar elegibilidad: {str(e)}")

@@ -8,17 +8,17 @@ from services.api.database import Base, get_db
 from main import app
 from services.api import models
 
-# Tomar la variable de entorno DATABASE_URL o usar SQLite por defecto
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+# Configurar BD de prueba
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test_db.db")
 
-if DATABASE_URL.startswith("sqlite"):
+if "sqlite" in DATABASE_URL:
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
     engine = create_engine(DATABASE_URL)
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Crear tablas si no existen
+# Crear tablas
 Base.metadata.create_all(bind=engine)
 
 def override_get_db():
@@ -28,7 +28,7 @@ def override_get_db():
     finally:
         db.close()
 
-# Reemplaza la dependencia de FastAPI para tests
+# Override de dependencias
 app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture
@@ -39,6 +39,7 @@ def client():
 @pytest.fixture
 def db():
     db = TestingSessionLocal()
+    # Limpiar tablas antes de cada test
     for table in reversed(Base.metadata.sorted_tables):
         db.execute(table.delete())
     db.commit()
