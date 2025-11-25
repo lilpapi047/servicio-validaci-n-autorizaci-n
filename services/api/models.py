@@ -1,16 +1,23 @@
 # services/api/models.py
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, Text
 from sqlalchemy.sql import func
 from .database import Base
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "user"
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hash_pwd = Column(String, nullable=False)
     is_verified = Column(Boolean, default=False)
-    date_of_birth = Column(DateTime, nullable=True)
+    twofa_secret = Column(String, nullable=True)
+    is_2fa_enabled = Column(Boolean, nullable=True)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    country_code = Column(String(2), nullable=True)
+    phone = Column(String, nullable=True)
+    email_verified_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Match(Base):
