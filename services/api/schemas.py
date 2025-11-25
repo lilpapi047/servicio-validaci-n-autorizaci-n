@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from typing import Optional
 from datetime import date
 
@@ -10,7 +10,7 @@ class UserBase(BaseModel):
     country_code: Optional[str] = Field(None, max_length=2)
     phone: Optional[str] = None
     
-    @validator('country_code')
+    @field_validator('country_code', mode='before')
     def validate_country_code(cls, v):
         if v:
             v = v.strip()
@@ -29,7 +29,7 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     
-    @validator('country_code')
+    @field_validator('country_code', mode='before')
     def validate_country_code(cls, v):
         if v:
             v = v.strip()
@@ -42,11 +42,11 @@ class UserChangePassword(BaseModel):
     new_password: str = Field(..., min_length=6)
     confirm_password: str = Field(..., min_length=6)
     
-    @validator('new_password')
-    def passwords_match(cls, v, values):
-        if 'confirm_password' in values and v != values['confirm_password']:
+    @model_validator(mode='after')
+    def passwords_match(cls, m):
+        if m.new_password != m.confirm_password:
             raise ValueError('Las contraseñas no coinciden')
-        return v
+        return m
 
 class UserResponse(UserBase):
     id: int
@@ -55,8 +55,7 @@ class UserResponse(UserBase):
     email_verified_at: Optional[str]
     created_at: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserProfileResponse(BaseModel):
     id: int
@@ -71,5 +70,4 @@ class UserProfileResponse(BaseModel):
     email_verified_at: Optional[str]
     created_at: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

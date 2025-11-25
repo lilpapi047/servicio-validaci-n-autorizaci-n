@@ -41,7 +41,8 @@ def update_user_profile(db: Session, user_id: int, user_update: UserUpdate) -> U
     if not db_user:
         return None
     
-    update_data = user_update.dict(exclude_unset=True)
+    # Pydantic v2: use model_dump instead of dict
+    update_data = user_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_user, field, value)
     

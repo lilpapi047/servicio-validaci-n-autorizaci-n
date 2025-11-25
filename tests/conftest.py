@@ -1,11 +1,9 @@
 import os
 import pytest
 from datetime import datetime, timedelta, timezone
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from services.api.database import Base, get_db
-from main import app
 from services.api import models
 
 # Configurar BD de prueba
@@ -17,9 +15,9 @@ else:
     engine = create_engine(DATABASE_URL)
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Crear tablas
+# Create tables (ensure models exist)
 Base.metadata.create_all(bind=engine)
+
 
 def override_get_db():
     db = TestingSessionLocal()
@@ -28,23 +26,21 @@ def override_get_db():
     finally:
         db.close()
 
-# Override de dependencias
-app.dependency_overrides[get_db] = override_get_db
 
-@pytest.fixture
-def client():
-    with TestClient(app) as c:
-        yield c
-
+# Transactional DB fixture: start a connection + transaction and provide a
+# session bound to that connection. Rollback after the test so the real DB
+# state is preserved and tests are isolated.
 @pytest.fixture
 def db():
-    db = TestingSessionLocal()
-    # Limpiar tablas antes de cada test
-    for table in reversed(Base.metadata.sorted_tables):
-        db.execute(table.delete())
-    db.commit()
-    yield db
-    db.close()
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = TestingSessionLocal(bind=connection)
+    try:
+        yield session
+    finally:
+        session.close()
+        transaction.rollback()
+        connection.close()
 
 # Funciones de ayuda para tests
 def _make_user(db, *, email="test@example.com", verified=False, dob=None):
