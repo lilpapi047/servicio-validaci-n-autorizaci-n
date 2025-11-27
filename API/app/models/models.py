@@ -34,6 +34,7 @@ class User(Base):
     date_of_birth = Column(Date)
     country_code = Column(CHAR(2))
     phone = Column(Text)
+    role = Column(Text, nullable=False, default="usuario", index=True)
 
     # Verificación / 2FA
     is_verified = Column(Boolean, nullable=False, default=False)

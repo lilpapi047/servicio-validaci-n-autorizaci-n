@@ -9,7 +9,7 @@ import pyotp
 from ..database import get_db
 from .. import security
 from ..models import User
-from ..schemas.user import UserCreate, UserRegister, UserOut
+from ..schemas.user import UserCreate, UserRegister, UserOut, ResendVerificationRequest
 from ..services.email_service import send_verification_email
 from shared.config import settings
 
@@ -130,11 +130,11 @@ def verify_account(token: str, db: Session = Depends(get_db)):
 # Reenviar correo de verificación
 # ==============================
 @router.post("/verify/send")
-def resend_verification(user_email: str, db: Session = Depends(get_db)):
+def resend_verification(payload: ResendVerificationRequest, db: Session = Depends(get_db)):
     """
     Reenvía el correo de verificación a un usuario no verificado.
     """
-    user = db.query(User).filter(User.email == user_email).first()
+    user = db.query(User).filter(User.email == payload.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 

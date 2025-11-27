@@ -8,9 +8,8 @@ from .database import Base, engine, init_db
 # Routers del microservicio
 from .routers import (
     login,
-    register,
     tokens,
-    auth,        # Verificación email + 2FA
+    auth,        # Verificación email + 2FA + Registro
     eligibility, # Elegibilidad para la rifa
     raffle,      # Lógica de asignación, reintentos, etc.
     criteria,    # Criterios (edad mínima, reglas, etc.)
@@ -62,12 +61,9 @@ def startup_event():
 # Cada router ya define su propio `prefix` y `tags`,
 # así que aquí NO agregamos prefix extra.
 
-# AUTH (login, register, tokens)
-app.include_router(register.router)
+# AUTH (login, tokens, register, verification, 2FA)
 app.include_router(login.router)
 app.include_router(tokens.router)
-
-# AUTH VALIDATION (email verification + 2FA)
 app.include_router(auth.router)
 
 # RAFFLE / ELIGIBILITY

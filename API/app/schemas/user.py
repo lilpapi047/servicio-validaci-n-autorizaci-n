@@ -58,5 +58,13 @@ class UserCreate(UserBase):
 class UserOut(UserBase):
     id: int
     is_verified: bool
+    role: str
+    has_raffle_assignment: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
 
     model_config = ConfigDict(from_attributes=True)
