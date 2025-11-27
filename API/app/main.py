@@ -24,15 +24,9 @@ app = FastAPI(title="Global Cup Ticket API – Unified Service")
 # ---------------------------------------------------------
 # 🔹 CORS
 # ---------------------------------------------------------
-origins = [
-    os.getenv("FRONTEND_URL", "http://localhost:5173"),
-    "http://localhost:8001",
-    "http://localhost:8002",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Permite todos los orígenes (solo para desarrollo)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
