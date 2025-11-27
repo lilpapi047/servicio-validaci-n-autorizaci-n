@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # ---------------------------------------------------------
     DATABASE_URL: str = Field(..., alias="DATABASE_URL")
     SECRET_KEY: str = Field("5689", alias="SECRET_KEY")
-    resend_api_key: str = Field(..., alias="RESEND_API_KEY")
+    #resend_api_key: str = Field(..., alias="RESEND_API_KEY")
     frontend_url: str = Field(..., alias="FRONTEND_URL")
 
     # ---------------------------------------------------------
@@ -55,7 +55,15 @@ class Settings(BaseSettings):
     # Email configuration
     # ---------------------------------------------------------
     email_from: str = Field(default="no-reply@globalcup.local", alias="EMAIL_FROM")
-    email_mode: str = Field(default="resend", alias="EMAIL_MODE")
+    #email_mode: str = Field(default="resend", alias="EMAIL_MODE")
+    email_mode: str = Field(default="sendgrid", alias="EMAIL_MODE")
+
+
+    # For SendGrid
+    sendgrid_api_key: Optional[str] = Field(
+        default=None,
+        alias="SENDGRID_API_KEY",
+    )
 
     smtp_server: Optional[str] = Field(
         default="sandbox.smtp.mailtrap.io",
@@ -64,6 +72,7 @@ class Settings(BaseSettings):
     smtp_port: Optional[int] = Field(default=2525, alias="SMTP_PORT")
     smtp_username: Optional[str] = Field(default="smtp-username", alias="SMTP_USERNAME")
     smtp_password: Optional[str] = Field(default="smtp-password", alias="SMTP_PASSWORD")
+    
 
 
 # ---------------------------------------------------------

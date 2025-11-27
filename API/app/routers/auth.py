@@ -110,20 +110,33 @@ def verify_account(token: str, db: Session = Depends(get_db)):
     """
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.algorithm])
-        email = payload.get("sub")
+        email: str = payload.get("sub")
+
         if email is None:
-            raise HTTPException(status_code=400, detail="Token inválido")
-
-        user = db.query(User).filter(User.email == email).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-        user.is_verified = True
-        db.commit()
-        return {"message": "Cuenta verificada exitosamente"}
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token inválido"
+            )
 
     except JWTError:
-        raise HTTPException(status_code=400, detail="Token inválido o expirado")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token inválido o expirado"
+        )
+    # Find user
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado"
+        )
+
+    # Mark as verified
+    user.is_verified = True
+    db.commit()
+
+    return {"message": "Tu cuenta ha sido verificada exitosamente."}
 
 
 # ==============================
@@ -200,4 +213,4 @@ def verify_2fa(user_email: str, code: str, db: Session = Depends(get_db)):
 
     user.is_2fa_enabled = True
     db.commit()
-    return {"message": "Autenticación de dos factores verificada correctamente ✅"}
+    return {"message": "Autenticación de dos factores verificada correctamente"}
