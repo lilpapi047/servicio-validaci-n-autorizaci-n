@@ -9,7 +9,7 @@ import os, secrets, random
 from ..database import get_db
 from .. import models
 from ..notifications import send_email_mailtrap
-from ..eligibility_rules import evaluate_eligibility 
+from ..eligibility_rules import evaluate_eligibility
 from .criteria import require_admin
 
 router = APIRouter()
@@ -27,17 +27,19 @@ class AssignmentOut(BaseModel):
     expires_at: datetime
     purchase_link: AnyUrl
 
+
 class RaffleRunRequest(BaseModel):
     match_id: int
     num_winners: int = 100
+
 
 class RaffleRunResult(BaseModel):
     match_id: int
     total_eligible: int
     winners: list[int]
 
-def expire_past_due(db: Session) -> int:
 
+def expire_past_due(db: Session) -> int:
     now = datetime.now(timezone.utc)
     stmt = (
         update(models.RaffleAssignment)
@@ -49,18 +51,21 @@ def expire_past_due(db: Session) -> int:
     db.commit()
     return res.rowcount or 0
 
+
 def enqueue_email(tasks: BackgroundTasks, to: str, subject: str, body: str):
-    
     def _send():
         try:
             send_email_mailtrap(to, subject, body)
         except Exception as e:
             print(f"Email send failed for {to}: {e}")
+
     tasks.add_task(_send)
+
 
 @router.get("/ping")
 def ping():
     return {"raffle": "ready"}
+
 
 @router.post("/assign", status_code=201, response_model=AssignmentOut)
 def create_assignment(
@@ -70,7 +75,6 @@ def create_assignment(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    
     expire_past_due(db)
 
     # Validacion
@@ -81,8 +85,7 @@ def create_assignment(
     match = db.get(models.Match, match_id)
     if not match:
         raise HTTPException(404, "Match not found")
-    
-    
+
     ok, reasons = evaluate_eligibility(db, user, match, MIN_ELIGIBILITY_AGE)
     if not ok:
         raise HTTPException(status_code=400, detail={"eligible": False, "reasons": reasons})
@@ -124,7 +127,6 @@ def create_assignment(
         )
         enqueue_email(tasks, user.email, subject, body)
 
-    
     response.headers["Location"] = purchase_link
 
     return AssignmentOut(
@@ -135,6 +137,7 @@ def create_assignment(
         expires_at=assignment.expires_at,
         purchase_link=purchase_link,
     )
+
 
 @router.post(
     "/run",
@@ -206,19 +209,7 @@ def run_raffle(
             )
             enqueue_email(tasks, user.email, subject, body_email)
 
-# --- Registrar en audit_log que se corrió la rifa ---
-    actor = "admin_token"  # o algo más específico si luego identificas admins
-    action = "raffle_run"
-    entity = "match"
-    entity_id = str(match.id)
-
-    log_entry = models.AuditLog(
-        actor=actor,
-        action=action,
-        entity=entity,
-        entity_id=entity_id,
-    )
-    db.add(log_entry)
+    # Guardar todas las asignaciones creadas
     db.commit()
 
     return RaffleRunResult(
@@ -227,35 +218,8 @@ def run_raffle(
         winners=winner_ids,
     )
 
+
 @router.post("/expire-past-due")
 def force_expire(db: Session = Depends(get_db)):
-
     count = expire_past_due(db)
     return {"expired": count}
-
-class RaffleAuditEntry(BaseModel):
-    id: int
-    actor: str
-    action: str
-    entity: str
-    entity_id: str
-    at: datetime
-
-
-@router.get(
-    "/audit",
-    response_model=list[RaffleAuditEntry],
-    dependencies=[Depends(require_admin)],
-)
-def get_raffle_audit(
-    limit: int = 50,
-    db: Session = Depends(get_db),
-):
-    rows = (
-        db.query(models.AuditLog)
-        .filter(models.AuditLog.action == "raffle_run")
-        .order_by(models.AuditLog.at.desc())
-        .limit(limit)
-        .all()
-    )
-    return rows

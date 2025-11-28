@@ -103,40 +103,54 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 # ==============================
 # Verificar correo (token enviado por email)
 # ==============================
+
 @router.get("/verify")
-def verify_account(token: str, db: Session = Depends(get_db)):
+def verify_email(token: str, db: Session = Depends(get_db)):
     """
-    Verifica el token de confirmación enviado al correo.
+    Endpoint called when the user clicks the email link.
+    - Decodes the JWT token
+    - Finds the user
+    - Marks account as verified
+    - Redirects to frontend login with a flag
     """
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.algorithm])
-        email: str = payload.get("sub")
-
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.algorithm],
+        )
+        email: str | None = payload.get("sub")
         if email is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Token inválido"
-            )
+            # token sin email
+            raise JWTError("No sub in token")
 
     except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token inválido o expirado"
+        # Token inválido o expirado → redirige con error
+        return RedirectResponse(
+            f"{settings.frontend_url}/login?verified=0&reason=invalid_token",
+            status_code=302,
         )
-    # Find user
+
+    # Buscar usuario
     user = db.query(User).filter(User.email == email).first()
-
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuario no encontrado"
+        return RedirectResponse(
+            f"{settings.frontend_url}/login?verified=0&reason=user_not_found",
+            status_code=302,
         )
 
-    # Mark as verified
-    user.is_verified = True
-    db.commit()
+    # Marcar como verificado (si no lo estaba)
+    if not user.is_verified:
+        user.is_verified = True
+        if hasattr(user, "email_verified_at"):
+            user.email_verified_at = datetime.utcnow()
+        db.commit()
 
-    return {"message": "Tu cuenta ha sido verificada exitosamente."}
+    # Redirigir al login indicando éxito
+    return RedirectResponse(
+        f"{settings.frontend_url}/login?verified=1",
+        status_code=302,
+    )
 
 
 # ==============================

@@ -17,7 +17,8 @@ def send_verification_email(to_email: str, token: str) -> bool:
     if not settings.sendgrid_api_key:
         print("[SendGrid] Falta SENDGRID_API_KEY en el entorno")
         return False
-
+    
+    backend_url = "http://localhost:8000"
     verification_link = f"{settings.frontend_url}/verify?token={token}"
 
     subject = "Verifica tu cuenta"
